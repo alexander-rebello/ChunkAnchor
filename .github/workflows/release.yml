@@ -79,8 +79,9 @@ jobs:
         if: steps.meta.outputs.exists == 'false'
         env:
           MODRINTH_TOKEN: ${{ secrets.MODRINTH_PAT }}
-          # MODRINTH_PROJECT_ID (repo variable or secret) wins; otherwise the slug from gradle.properties
-          PROJECT: ${{ vars.MODRINTH_PROJECT_ID || secrets.MODRINTH_PROJECT_ID || steps.meta.outputs.modrinth_project }}
+          # MODRINTH_PROJECT_ID (repo variable or secret) is used directly; otherwise the slug from gradle.properties is looked up
+          PROJECT_ID: ${{ vars.MODRINTH_PROJECT_ID || secrets.MODRINTH_PROJECT_ID }}
+          PROJECT: ${{ steps.meta.outputs.modrinth_project }}
           VERSION: ${{ steps.meta.outputs.version }}
           JAR: ${{ steps.meta.outputs.jar }}
           GAME_VERSIONS: ${{ steps.meta.outputs.game_versions }}
@@ -105,7 +106,9 @@ jobs:
             cat response.json
           }
 
-          PROJECT_ID=$(modrinth "project lookup '$PROJECT'" -H "Authorization: $MODRINTH_TOKEN" "$API/project/$PROJECT" | jq -r '.id')
+          if [ -z "${PROJECT_ID:-}" ]; then
+            PROJECT_ID=$(modrinth "project lookup '$PROJECT'" -H "Authorization: $MODRINTH_TOKEN" "$API/project/$PROJECT" | jq -r '.id')
+          fi
           echo "Project: $PROJECT_ID"
 
           # Expand "26.3" to every Modrinth game version 26.3, 26.3.x
