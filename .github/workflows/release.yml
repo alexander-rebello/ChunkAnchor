@@ -93,12 +93,24 @@ jobs:
           UA="alexander-rebello/chunkanchor (GitHub Actions)"
           API="https://api.modrinth.com/v2"
 
-          PROJECT_ID=$(curl -sS --fail-with-body -H "User-Agent: $UA" -H "Authorization: $MODRINTH_TOKEN" \
-            "$API/project/$PROJECT" | jq -r '.id')
+          # Calls the Modrinth API; on failure reports the status and response as an error annotation
+          modrinth() {
+            local what="$1"; shift
+            local status
+            status=$(curl -sS -o response.json -w '%{http_code}' -H "User-Agent: $UA" "$@")
+            if [ "$status" -ge 400 ]; then
+              echo >&2 "::error::Modrinth $what failed (HTTP $status): $(head -c 600 response.json | tr '\n' ' ')"
+              exit 1
+            fi
+            cat response.json
+          }
+
+          PROJECT_ID=$(modrinth "project lookup '$PROJECT'" -H "Authorization: $MODRINTH_TOKEN" "$API/project/$PROJECT" | jq -r '.id')
+          echo "Project: $PROJECT_ID"
 
           # Expand "26.3" to every Modrinth game version 26.3, 26.3.x
           PATTERN="^($(echo "$GAME_VERSIONS" | sed 's/\./\\./g; s/,/|/g'))(\.[0-9]+)?$"
-          VERSIONS=$(curl -sS --fail-with-body -H "User-Agent: $UA" "$API/tag/game_version" \
+          VERSIONS=$(modrinth "game version list" "$API/tag/game_version" \
             | jq -c --arg re "$PATTERN" '[.[] | .version | select(test($re))]')
           if [ "$VERSIONS" = "[]" ]; then
             echo "::error::None of '$GAME_VERSIONS' exist on Modrinth."
@@ -116,8 +128,7 @@ jobs:
               game_versions: $gameVersions, version_type: "release", loaders: ["paper", "purpur"],
               featured: true, project_id: $project, file_parts: ["jar"], primary_file: "jar"}' > modrinth.json
 
-          curl -sS --fail-with-body -X POST "$API/version" \
-            -H "User-Agent: $UA" \
+          modrinth "version upload" -X POST "$API/version" \
             -H "Authorization: $MODRINTH_TOKEN" \
             -F "data=<modrinth.json;type=application/json" \
             -F "jar=@$JAR;type=application/java-archive" | jq '{id, version_number, game_versions}'
