@@ -1,0 +1,20 @@
+name: ChunkAnchor
+version: '${version}'
+main: io.github.alexanderrebello.chunkanchor.ChunkAnchorPlugin
+description: Craftable, fuel-powered chunk loaders.
+api-version: '${apiVersion}'
+author: Alexander Rebello
+website: https://github.com/alexander-rebello/chunkanchor
+load: POSTWORLD
+folia-supported: false
+
+permissions:
+  chunkanchor.use:
+    description: Place and use Chunk Anchors
+    default: true
+  chunkanchor.admin:
+    description: Admin commands; access and break any anchor
+    default: op
+  chunkanchor.bypass.limit:
+    description: Ignore the per-player anchor limit
+    default: op

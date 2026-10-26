@@ -1,0 +1,188 @@
+# ChunkAnchor configuration
+# All text uses MiniMessage: https://docs.advntr.dev/minimessage/format.html
+# Run /chunkanchor reload after editing.
+
+settings:
+  # How often (in seconds) anchors are processed. Drain is scaled to this interval,
+  # so changing it does not change how long a charge lasts.
+  tick-interval-seconds: 5
+
+  # always          -> running anchors always drain charge
+  # when-unattended -> running anchors only drain while no player is within 'unattended-distance' blocks
+  drain-mode: always
+  unattended-distance: 128
+
+  # Maximum anchors one player may own (0 = unlimited). Bypass permission: chunkanchor.bypass.limit
+  max-anchors-per-player: 3
+
+  # Worlds where anchors can't be placed or run
+  disabled-worlds: []
+
+  # Only the owner (or chunkanchor.admin) may open / break an anchor
+  only-owner-can-access: false
+  only-owner-can-break: true
+
+  # Anchors can't be destroyed by explosions. If false, an exploded anchor drops itself and its unused fuel.
+  explosion-proof: true
+
+  # Small particle effect on running anchors
+  particles: true
+
+  # Message the owner (if online) when an anchor runs out of charge
+  notify-owner-when-empty: true
+
+  # Unlock the plugin's recipes in the recipe book when players join
+  auto-discover-recipes: true
+
+# The fuel item. 'charge' is how much charge one item adds.
+fuel:
+  material: AMETHYST_SHARD
+  name: "<gradient:#a78bfa:#f0abfc>Anchor Charge</gradient>"
+  lore:
+    - "<gray>Fuel for Chunk Anchors.</gray>"
+    - "<gray>Worth <light_purple><charge></light_purple> charge.</gray>"
+  glint: true
+  charge: 60
+  recipe:
+    amount: 2
+    shape:
+      - "RGR"
+      - "GPG"
+      - "RGR"
+    ingredients:
+      R: REDSTONE
+      G: GLOWSTONE_DUST
+      P: ENDER_PEARL
+
+# Anchor tiers. The key (basic, reinforced, ...) is stored with placed anchors - don't rename it once in use.
+#   block            - block / item material of the anchor
+#   radius           - chunks around the anchor's chunk: 0 = 1 chunk, 1 = 3x3, 2 = 5x5, ...
+#   capacity         - maximum charge the anchor can hold
+#   drain-per-minute - charge used per minute while running
+# Recipe ingredients: any material, "anchor:<tier>" for an anchor of another tier, or "fuel".
+tiers:
+  basic:
+    name: "<gradient:#8b5cf6:#c084fc>Chunk Anchor</gradient>"
+    lore:
+      - "<gray>Keeps <white><area></white> chunk area loaded while charged.</gray>"
+      - "<gray>Capacity: <white><capacity></white> charge</gray>"
+      - "<gray>Uses <white><drain></white> charge per minute</gray>"
+    block: LODESTONE
+    radius: 0
+    capacity: 1440
+    drain-per-minute: 1.0
+    glint: true
+    recipe:
+      amount: 1
+      shape:
+        - "ODO"
+        - "ELE"
+        - "ODO"
+      ingredients:
+        O: OBSIDIAN
+        D: DIAMOND
+        E: ENDER_EYE
+        L: LODESTONE
+
+  reinforced:
+    name: "<gradient:#7c3aed:#e879f9>Reinforced Chunk Anchor</gradient>"
+    lore:
+      - "<gray>Keeps <white><area></white> chunk area loaded while charged.</gray>"
+      - "<gray>Capacity: <white><capacity></white> charge</gray>"
+      - "<gray>Uses <white><drain></white> charge per minute</gray>"
+    block: CRYING_OBSIDIAN
+    radius: 1
+    capacity: 2880
+    drain-per-minute: 3.0
+    glint: true
+    recipe:
+      amount: 1
+      shape:
+        - "GEG"
+        - "CAC"
+        - "GDG"
+      ingredients:
+        G: GOLD_BLOCK
+        E: ENDER_EYE
+        C: CRYING_OBSIDIAN
+        A: "anchor:basic"
+        D: DIAMOND_BLOCK
+
+  eternal:
+    name: "<gradient:#6d28d9:#f0abfc>Eternal Chunk Anchor</gradient>"
+    lore:
+      - "<gray>Keeps <white><area></white> chunk area loaded while charged.</gray>"
+      - "<gray>Capacity: <white><capacity></white> charge</gray>"
+      - "<gray>Uses <white><drain></white> charge per minute</gray>"
+    block: NETHERITE_BLOCK
+    radius: 2
+    capacity: 5760
+    drain-per-minute: 6.0
+    glint: true
+    recipe:
+      amount: 1
+      shape:
+        - "NEN"
+        - "EAE"
+        - "NSN"
+      ingredients:
+        N: NETHERITE_INGOT
+        E: END_CRYSTAL
+        A: "anchor:reinforced"
+        S: NETHER_STAR
+
+# The menu that opens when right-clicking an anchor
+menu:
+  title: "<anchor>"
+  filler: GRAY_STAINED_GLASS_PANE
+  info-lore:
+    - "<gray>Status: <status>"
+    - "<gray>Area: <white><area></white> chunks"
+    - "<gray>Owner: <white><owner></white>"
+    - "<gray>Charge: <white><charge></white>/<white><capacity></white> (<percent>%)"
+    - "<gray>Time left: <white><time></white>"
+  status-running: "<green>Running"
+  status-off: "<yellow>Switched off"
+  status-empty: "<red>Out of charge"
+  bar-name: "<white>Charge: <percent>%"
+  bar-lore:
+    - "<gray><charge>/<capacity> charge"
+  toggle-on: "<green>Switched on <gray>(click to switch off)"
+  toggle-off: "<red>Switched off <gray>(click to switch on)"
+  insert-one: "<light_purple>Insert 1 Anchor Charge"
+  insert-all: "<light_purple>Insert all Anchor Charge"
+  insert-lore:
+    - "<gray>You can also shift-click Anchor Charge"
+    - "<gray>in your inventory, or click with it here."
+  withdraw: "<yellow>Take out unused fuel"
+  withdraw-lore:
+    - "<gray>Stored: <white><stored></white>"
+    - "<gray>Currently burning: <white><burning>%</white>"
+    - "<dark_gray>The piece that is burning can't be taken out."
+  close: "<red>Close"
+
+messages:
+  prefix: "<dark_gray>[<gradient:#8b5cf6:#c084fc>ChunkAnchor</gradient>]</dark_gray> "
+  placed: "<gray>Placed <anchor><gray>. Right-click it and add Anchor Charge to start loading chunks."
+  broken: "<gray>Removed <anchor><gray>."
+  limit-reached: "<red>You can't own more than <limit> anchors."
+  world-disabled: "<red>Chunk Anchors are disabled in this world."
+  not-owner: "<red>This anchor belongs to <owner>."
+  no-permission: "<red>You don't have permission to do that."
+  no-fuel-in-inventory: "<red>You don't have any Anchor Charge."
+  tank-full: "<red>This anchor can't hold more charge."
+  inserted: "<gray>Added <light_purple><amount></light_purple> Anchor Charge."
+  withdrawn: "<gray>Took out <light_purple><amount></light_purple> Anchor Charge."
+  nothing-to-withdraw: "<red>There is no unused fuel in this anchor."
+  ran-empty: "<yellow>Your <anchor> <yellow>at <white><location></white> ran out of charge and stopped."
+  unknown-tier: "<red>This anchor's tier '<tier>' no longer exists in the config."
+  reloaded: "<green>Configuration reloaded."
+  given: "<gray>Gave <white><amount>x</white> <item> <gray>to <white><player></white>."
+  player-not-found: "<red>Player '<player>' not found."
+  tier-not-found: "<red>Unknown tier '<tier>'. Tiers: <tiers>"
+  list-header: "<gray>Anchors of <white><player></white> (<count>):"
+  list-entry: "<dark_gray> - </dark_gray><anchor> <gray><location> <status> <gray>(<charge>/<capacity>)"
+  list-empty: "<gray><player> has no anchors."
+  usage: "<gray>Usage: <white>/chunkanchor list [player] | give \\<player> \\<tier> [amount] | fuel \\<player> [amount] | debug | reload</white>"
+  debug-header: "<gray>Plugin chunk tickets: <white><tickets></white>, running anchors: <white><running></white>/<white><total></white>"
+  debug-entry: "<dark_gray> - </dark_gray><gray><location> <status> <gray>chunk load level: <white><level></white>"

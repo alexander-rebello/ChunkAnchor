@@ -1,0 +1,124 @@
+name: Release
+
+# Runs only for commits on master: builds the jar, publishes it to Modrinth and
+# creates a GitHub release. If the version in gradle.properties already has a
+# release, the jar is only built and attached to the workflow run.
+on:
+  push:
+    branches: [master]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Build
+        run: |
+          chmod +x gradlew
+          ./gradlew build --no-daemon
+
+      - name: Read metadata
+        id: meta
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          prop() { grep -E "^$1=" gradle.properties | head -n1 | cut -d= -f2- | tr -d '[:space:]'; }
+          VERSION=$(prop version)
+          JAR=$(ls build/libs/ChunkAnchor-*.jar | grep -v -e '-sources' -e '-javadoc' | head -n1)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+          echo "jar=$JAR" >> "$GITHUB_OUTPUT"
+          echo "modrinth_project=$(prop modrinthProject)" >> "$GITHUB_OUTPUT"
+          echo "game_versions=$(prop modrinthGameVersions)" >> "$GITHUB_OUTPUT"
+          if gh release view "v$VERSION" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::Release v$VERSION already exists - bump 'version' in gradle.properties to publish a new one."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ChunkAnchor-${{ steps.meta.outputs.version }}
+          path: ${{ steps.meta.outputs.jar }}
+
+      - name: Changelog
+        if: steps.meta.outputs.exists == 'false'
+        run: |
+          PREV=$(git describe --tags --abbrev=0 2>/dev/null || true)
+          if [ -n "$PREV" ]; then RANGE="$PREV..HEAD"; else RANGE="HEAD"; fi
+          git log --no-merges --pretty='- %s' $RANGE > CHANGELOG.md
+          cat CHANGELOG.md
+
+      - name: Publish to Modrinth
+        if: steps.meta.outputs.exists == 'false'
+        env:
+          MODRINTH_TOKEN: ${{ secrets.MODRINTH_PAT }}
+          PROJECT: ${{ steps.meta.outputs.modrinth_project }}
+          VERSION: ${{ steps.meta.outputs.version }}
+          JAR: ${{ steps.meta.outputs.jar }}
+          GAME_VERSIONS: ${{ steps.meta.outputs.game_versions }}
+        run: |
+          set -euo pipefail
+          if [ -z "${MODRINTH_TOKEN:-}" ]; then
+            echo "::error::The MODRINTH_PAT secret is not set on this repository."
+            exit 1
+          fi
+          UA="alexander-rebello/chunkanchor (GitHub Actions)"
+          API="https://api.modrinth.com/v2"
+
+          PROJECT_ID=$(curl -sS --fail-with-body -H "User-Agent: $UA" -H "Authorization: $MODRINTH_TOKEN" \
+            "$API/project/$PROJECT" | jq -r '.id')
+
+          # Expand "26.3" to every Modrinth game version 26.3, 26.3.x
+          PATTERN="^($(echo "$GAME_VERSIONS" | sed 's/\./\\./g; s/,/|/g'))(\.[0-9]+)?$"
+          VERSIONS=$(curl -sS --fail-with-body -H "User-Agent: $UA" "$API/tag/game_version" \
+            | jq -c --arg re "$PATTERN" '[.[] | .version | select(test($re))]')
+          if [ "$VERSIONS" = "[]" ]; then
+            echo "::error::None of '$GAME_VERSIONS' exist on Modrinth."
+            exit 1
+          fi
+          echo "Game versions: $VERSIONS"
+
+          jq -n \
+            --arg name "ChunkAnchor $VERSION" \
+            --arg version "$VERSION" \
+            --arg project "$PROJECT_ID" \
+            --rawfile changelog CHANGELOG.md \
+            --argjson gameVersions "$VERSIONS" \
+            '{name: $name, version_number: $version, changelog: $changelog, dependencies: [],
+              game_versions: $gameVersions, version_type: "release", loaders: ["paper", "purpur"],
+              featured: true, project_id: $project, file_parts: ["jar"], primary_file: "jar"}' > modrinth.json
+
+          curl -sS --fail-with-body -X POST "$API/version" \
+            -H "User-Agent: $UA" \
+            -H "Authorization: $MODRINTH_TOKEN" \
+            -F "data=<modrinth.json;type=application/json" \
+            -F "jar=@$JAR;type=application/java-archive" | jq '{id, version_number, game_versions}'
+
+      - name: GitHub release
+        if: steps.meta.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ steps.meta.outputs.tag }}" "${{ steps.meta.outputs.jar }}" \
+            --title "ChunkAnchor ${{ steps.meta.outputs.version }}" \
+            --notes-file CHANGELOG.md \
+            --target "$GITHUB_SHA"
