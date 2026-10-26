@@ -20,10 +20,12 @@ tasks.withType<JavaCompile>().configureEach {
     options.release.set(25)
 }
 
+val pluginApiVersion = providers.gradleProperty("pluginApiVersion").get()
+
 tasks.processResources {
     val props = mapOf(
         "version" to project.version.toString(),
-        "apiVersion" to property("pluginApiVersion").toString(),
+        "apiVersion" to pluginApiVersion,
     )
     inputs.properties(props)
     filesMatching("paper-plugin.yml") {
